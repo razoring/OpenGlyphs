@@ -62,7 +62,7 @@ const INJECTED_SCRIPT = `
 
 // Create the Local Proxy Server
 const proxyServer = http.createServer((req, res) => {
-    const query = new URL(req.url, \`http://localhost:\${proxyPort}\`).searchParams;
+    const query = new URL(req.url, `http://localhost:${proxyPort}`).searchParams;
     let targetUrl = query.get('url');
     
     if (!targetUrl) {
@@ -86,7 +86,7 @@ const proxyServer = http.createServer((req, res) => {
         if (targetRes.statusCode >= 300 && targetRes.statusCode < 400 && targetRes.headers.location) {
             let redirectUrl = targetRes.headers.location;
             if (!redirectUrl.startsWith('http')) redirectUrl = new URL(redirectUrl, targetUrl).href;
-            res.writeHead(302, { 'Location': \`http://localhost:\${proxyPort}/?url=\${encodeURIComponent(redirectUrl)}\` });
+            res.writeHead(302, { 'Location': `http://localhost:${proxyPort}/?url=${encodeURIComponent(redirectUrl)}` });
             return res.end();
         }
 
@@ -104,15 +104,15 @@ const proxyServer = http.createServer((req, res) => {
             let htmlData = '';
             targetRes.on('data', chunk => htmlData += chunk);
             targetRes.on('end', () => {
-                const baseTag = \`<base href="\${targetUrl}">\`;
+                const baseTag = `<base href="${targetUrl}">`;
                 if (htmlData.includes('<head>')) {
-                    htmlData = htmlData.replace('<head>', \`<head>\n\${baseTag}\`);
+                    htmlData = htmlData.replace('<head>', `<head>\n${baseTag}`);
                 } else {
                     htmlData = baseTag + htmlData;
                 }
                 
                 if (htmlData.includes('</body>')) {
-                    htmlData = htmlData.replace('</body>', \`\${INJECTED_SCRIPT}\n</body>\`);
+                    htmlData = htmlData.replace('</body>', `${INJECTED_SCRIPT}\n</body>`);
                 } else {
                     htmlData += INJECTED_SCRIPT;
                 }
@@ -134,14 +134,14 @@ window.addEventListener("beforeunload", () => proxyServer.close());
 // Use port 0 to automatically find an available port
 proxyServer.listen(0, () => {
     proxyPort = proxyServer.address().port;
-    statusDiv.innerHTML = \`Proxy active on port \${proxyPort}. Ready to load pages.\`;
+    statusDiv.innerHTML = `Proxy active on port ${proxyPort}. Ready to load pages.`;
     statusDiv.style.background = "#0a0";
     loadUrl(urlInput.value);
 });
 
 function loadUrl(url) {
     if (!url.startsWith('http')) url = 'https://' + url;
-    iframe.src = \`http://localhost:\${proxyPort}/?url=\${encodeURIComponent(url)}\`;
+    iframe.src = `http://localhost:${proxyPort}/?url=${encodeURIComponent(url)}`;
 }
 
 document.getElementById('goBtn').addEventListener('click', () => loadUrl(urlInput.value));
@@ -161,7 +161,7 @@ function sendRawSvgToIllustrator(svgString) {
     if (!svgString.startsWith('<?xml')) svgString = '<?xml version="1.0" encoding="utf-8"?>\n' + svgString;
     const dest = path.join(os.tmpdir(), 'dragged_asset_' + Date.now() + '.svg');
     fs.writeFileSync(dest, svgString, 'utf8');
-    csInterface.evalScript(\`importAsset("\${dest.replace(/\\\\/g, '\\\\\\\\')}")\`);
+    csInterface.evalScript(`importAsset("${dest.replace(/\\/g, '\\\\')}")`);
 }
 
 function downloadAndImport(url) {
@@ -178,7 +178,7 @@ function downloadAndImport(url) {
         response.pipe(file);
         file.on('finish', () => {
             file.close();
-            csInterface.evalScript(\`importAsset("\${dest.replace(/\\\\/g, '\\\\\\\\')}")\`);
+            csInterface.evalScript(`importAsset("${dest.replace(/\\/g, '\\\\')}")`);
         });
     });
 }
