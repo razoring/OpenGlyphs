@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Web Importer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="toolbar">
+        <input type="text" id="urlInput" value="https://www.svgrepo.com/" placeholder="Enter URL">
+        <button id="goBtn">Go</button>
+    </div>
+    
+    <div id="webview-container">
+        <!-- Using iframe to load external websites -->
+        <iframe id="browserView" src="https://www.svgrepo.com/" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe>
+    </div>
+
+    <!-- Adobe CEP Interface Library -->
+    <script src="js/CSInterface.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

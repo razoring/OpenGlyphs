@@ -1,0 +1,53 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: #323232;
+    color: #ffffff;
+}
+
+#toolbar {
+    display: flex;
+    padding: 8px;
+    background: #424242;
+    border-bottom: 1px solid #222;
+}
+
+#urlInput {
+    flex-grow: 1;
+    padding: 4px 8px;
+    border: 1px solid #222;
+    background: #555;
+    color: #fff;
+    border-radius: 4px;
+    outline: none;
+}
+
+#goBtn {
+    margin-left: 8px;
+    padding: 4px 12px;
+    background: #0070d6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#goBtn:hover {
+    background: #005bb5;
+}
+
+#webview-container {
+    flex-grow: 1;
+    width: 100%;
+    position: relative;
+}
+
+#browserView {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
