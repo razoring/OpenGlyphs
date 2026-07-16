@@ -77,13 +77,15 @@ var INJECTED_SCRIPT = [
 '      var cs=window.getComputedStyle(node);',
 '      var nr=node.getBoundingClientRect();',
 '      if(nr.width===0||nr.height===0||cs.display==="none"||cs.opacity==="0"||cs.visibility==="hidden")return;',
-'      var x=nr.left-ox,y=nr.top-oy,w=nr.width,h=nr.height,rx=parseFloat(cs.borderTopLeftRadius)||0;',
-'      if(cs.backgroundColor&&cs.backgroundColor!=="rgba(0, 0, 0, 0)"&&cs.backgroundColor!=="transparent"){',
-'        svgStr+="<rect x=\\""+x+"\\" y=\\""+y+"\\" width=\\""+w+"\\" height=\\""+h+"\\" fill=\\""+cs.backgroundColor+"\\" rx=\\""+rx+"\\" />";',
-'      }',
+'      var x=nr.left-ox,y=nr.top-oy,w=nr.width,h=nr.height;',
+'      var rx=parseFloat(cs.borderTopLeftRadius)||0;',
+'      rx=Math.min(rx, w/2, h/2);',
+'      var fill=(cs.backgroundColor&&cs.backgroundColor!=="rgba(0, 0, 0, 0)"&&cs.backgroundColor!=="transparent")?cs.backgroundColor:"none";',
 '      var bw=parseFloat(cs.borderTopWidth)||0;',
-'      if(cs.borderStyle!=="none"&&bw>0){',
-'        svgStr+="<rect x=\\""+x+"\\" y=\\""+y+"\\" width=\\""+w+"\\" height=\\""+h+"\\" fill=\\"none\\" stroke=\\""+cs.borderColor+"\\" stroke-width=\\""+bw+"\\" rx=\\""+rx+"\\" />";',
+'      var stroke=(cs.borderStyle!=="none"&&bw>0&&cs.borderColor)?cs.borderColor:"none";',
+'      if(fill!=="none"||stroke!=="none"){',
+'        var ix=x+bw/2,iy=y+bw/2,iw=w-bw,ih=h-bw,irx=Math.max(0,rx-bw/2);',
+'        svgStr+="<rect x=\\""+ix+"\\" y=\\""+iy+"\\" width=\\""+iw+"\\" height=\\""+ih+"\\" fill=\\""+fill+"\\" stroke=\\""+stroke+"\\" stroke-width=\\""+bw+"\\" rx=\\""+irx+"\\" />";',
 '      }',
 '      var tag=node.tagName.toLowerCase();',
 '      if(tag==="svg"){',
@@ -106,9 +108,7 @@ var INJECTED_SCRIPT = [
 '      for(var i=0;i<node.childNodes.length;i++)draw(node.childNodes[i],ox,oy);',
 '    }',
 '  }',
-'  el.removeAttribute("data-ai-hover");',
 '  draw(el,rect.left,rect.top);',
-'  el.setAttribute("data-ai-hover","1");',
 '  svgStr+="</svg>";',
 '  window.parent.postMessage({type:"import-svg",data:svgStr},"*");',
 '  _toast("Captured Vector SVG!");',
@@ -126,7 +126,14 @@ var INJECTED_SCRIPT = [
 '  _captureVector(el);',
 '}',
 
-'window.addEventListener("click",function(e){if(!_hl)return;e.preventDefault();e.stopPropagation();_send(e.target);},true);',
+'window.addEventListener("click",function(e){',
+'  if(_hl){ e.preventDefault();e.stopPropagation();_send(e.target); return; }',
+'  var a=e.target.closest("a");',
+'  if(a && a.href){',
+'    e.preventDefault(); e.stopPropagation();',
+'    window.parent.postMessage({type:"navigate", url: a.href}, "*");',
+'  }',
+'},true);',
 '<\/script>'
 ].join('\n');
 
@@ -214,6 +221,7 @@ window.addEventListener('message', function(event) {
     else if (d.type === 'import-svg') sendRawSvgToIllustrator(d.data);
     else if (d.type === 'import-url') downloadAndImport(d.data);
     else if (d.type === 'import-dataurl') sendDataUrlToIllustrator(d.data);
+    else if (d.type === 'navigate') { urlInput.value = d.url; loadUrl(d.url); }
 });
 
 function handleAiResponse(res) {
