@@ -21,6 +21,7 @@ function importAsset(filePath) {
         } else {
             item = doc.placedItems.add();
             item.file = fileToPlace;
+            item.embed(); // Force embed raster images
         }
         
         // Center the placed item in the active view
