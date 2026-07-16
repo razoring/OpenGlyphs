@@ -25,14 +25,19 @@ var INJECTED_SCRIPT = [
 'window.parent.postMessage({type:"request-highlight-state"},"*");',
 
 'var _css=document.createElement("style");',
-'_css.textContent="*[data-ai-hover]{outline:3px dashed #ff00ff!important;outline-offset:-3px!important;cursor:pointer!important;filter:drop-shadow(0 0 3px #ff00ff)!important}#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
+'_css.textContent="*[data-ai-hover]{outline:3px dashed #ff00ff!important;outline-offset:-3px!important;cursor:pointer!important;}#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
 'document.documentElement.appendChild(_css);',
+'function _ensureDom(){',
+'  if(!document.getElementById("og-css") && document.head) { _css.id="og-css"; document.documentElement.appendChild(_css); }',
+'  if(!document.getElementById("ai-toast") && document.body) document.documentElement.appendChild(_t);',
+'}',
+'setInterval(_ensureDom, 500);',
 
 'var _t=document.createElement("div");_t.id="ai-toast";document.documentElement.appendChild(_t);',
 'function _toast(m,err){_t.textContent=m;_t.style.background=err?"#a00":"#0a0";_t.classList.add("show");setTimeout(function(){_t.classList.remove("show");},2000);}',
 
-'window.addEventListener("mouseover",function(e){if(!_hl||!e.target||e.target===document.body||e.target===document.documentElement)return;e.target.setAttribute("data-ai-hover","1");},true);',
-'window.addEventListener("mouseout",function(e){if(!_hl||!e.target)return;e.target.removeAttribute("data-ai-hover");},true);',
+'window.addEventListener("pointerover",function(e){if(!_hl||!e.target||e.target===document.body||e.target===document.documentElement)return;e.target.setAttribute("data-ai-hover","1");},true);',
+'window.addEventListener("pointerout",function(e){if(!_hl||!e.target)return;e.target.removeAttribute("data-ai-hover");},true);',
 
 'function _captureVector(el){',
 '  _toast("Capturing vector...");',
