@@ -24,7 +24,28 @@ function importAsset(filePath) {
         try {
             if (isSvg) {
                 item = doc.groupItems.createFromFile(fileToPlace);
-                // Vector layers are fully processed in-browser before import
+                // Native Adobe Auto-Trace for isolated text/icon layers
+                if (item && item.rasterItems && item.rasterItems.length > 0) {
+                    for (var i = item.rasterItems.length - 1; i >= 0; i--) {
+                        try {
+                            var r = item.rasterItems[i];
+                            if (r.name && r.name.indexOf('ai-trace-me') !== -1) {
+                                var plugin = r.trace();
+                                
+                                // Safely apply high-fidelity settings (silent fail if unsupported in user's CC version)
+                                try { plugin.tracing.tracingOptions.tracingMode = TracingModeType.TRACINGCOLOR; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.tracingMethod = TracingMethodType.TRACINGMETHODABUTTING; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.ignoreWhite = true; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.pathFidelity = 100; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.noiseFidelity = 1; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.cornerFidelity = 100; } catch(e) {}
+                                
+                                app.redraw(); // Force Illustrator to register the high-res trace before expanding
+                                plugin.tracing.expandTracing(); // Convert to editable paths!
+                            }
+                        } catch(e) {}
+                    }
+                }
             } else {
                 item = doc.placedItems.add();
                 item.file = fileToPlace;
