@@ -223,7 +223,29 @@ var proxyServer = http.createServer(function (req, res) {
         delete headers['content-security-policy'];
         delete headers['access-control-allow-origin'];
 
-        if (headers['content-type'] && headers['content-type'].indexOf('text/html') !== -1) {
+        var disposition = targetRes.headers['content-disposition'] || '';
+        var ct = (targetRes.headers["content-type"] || "").toLowerCase();
+        var isAttachment = disposition.toLowerCase().indexOf('attachment') !== -1;
+        var isNavigatedAsset = (req.headers.accept || '').indexOf('text/html') !== -1 && (ct.indexOf('image/') !== -1 || ct.indexOf('application/zip') !== -1);
+
+        if (isAttachment || isNavigatedAsset) {
+            var isSvg = ct.indexOf("svg") !== -1 || disposition.toLowerCase().indexOf(".svg") !== -1;
+            var destExt = isSvg ? ".svg" : (ct.indexOf("png") !== -1 ? ".png" : (ct.indexOf("zip") !== -1 ? ".zip" : ".tmp"));
+            var dest = path.join(os.tmpdir(), "og_dl_" + Date.now() + destExt);
+            var file = fs.createWriteStream(dest);
+            targetRes.pipe(file);
+            targetRes.on('end', function() {
+                res.writeHead(200, {'Content-Type': 'text/html'});
+                res.end("<script>console.log('Download intercepted by OpenGlyphs');</script>");
+            });
+            file.on('finish', function() {
+                file.close();
+                csInterface.evalScript('importAsset("' + dest.replace(/\\/g, '\\\\\\\\') + '")', handleAiResponse);
+            });
+            return;
+        }
+
+        if (ct.indexOf('text/html') !== -1) {
             delete headers['content-encoding'];
             delete headers['content-length'];
             res.writeHead(targetRes.statusCode, headers);
