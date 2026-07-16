@@ -24,10 +24,18 @@ function importAsset(filePath) {
         try {
             if (isSvg) {
                 item = doc.groupItems.createFromFile(fileToPlace);
-                // Convert any text elements to pure vector paths
-                if (item && item.textFrames && item.textFrames.length > 0) {
-                    for (var i = item.textFrames.length - 1; i >= 0; i--) {
-                        try { item.textFrames[i].createOutline(); } catch(e) {}
+                // Native Adobe Auto-Trace for isolated text/icon layers
+                if (item && item.rasterItems && item.rasterItems.length > 0) {
+                    for (var i = item.rasterItems.length - 1; i >= 0; i--) {
+                        try {
+                            var r = item.rasterItems[i];
+                            if (r.name && r.name.indexOf('ai-trace-me') !== -1) {
+                                var plugin = r.trace();
+                                plugin.tracing.tracingOptions.tracingMode = TracingModeType.TRACINGCOLOR;
+                                plugin.tracing.tracingOptions.ignoreWhite = true;
+                                plugin.tracing.expandTracing();
+                            }
+                        } catch(e) {}
                     }
                 }
             } else {
