@@ -252,7 +252,7 @@ var proxyServer = http.createServer(function (req, res) {
         var disposition = targetRes.headers['content-disposition'] || '';
         var ct = (targetRes.headers["content-type"] || "").toLowerCase();
         var isAttachment = disposition.toLowerCase().indexOf('attachment') !== -1;
-        var isNavigatedAsset = (req.headers.accept || '').indexOf('text/html') !== -1 && (ct.indexOf('image/') !== -1 || ct.indexOf('application/zip') !== -1);
+        var isNavigatedAsset = query.get("url") && (req.headers.accept || '').indexOf('text/html') !== -1 && (ct.indexOf('image/') !== -1 || ct.indexOf('application/zip') !== -1);
 
         if (isAttachment || isNavigatedAsset) {
             var isSvg = ct.indexOf("svg") !== -1 || disposition.toLowerCase().indexOf(".svg") !== -1;
