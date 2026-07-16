@@ -28,12 +28,15 @@ body {
 
 #goBtn {
     margin-left: 8px;
-    padding: 4px 12px;
+    padding: 4px 8px;
     background: #0070d6;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #goBtn:hover {
