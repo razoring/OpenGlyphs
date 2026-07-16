@@ -141,16 +141,22 @@ var INJECTED_SCRIPT = [
 ].join('\n');
 
 // ── Local Proxy Server ──────────────────────────────────────────────
+var currentBaseUrl = "";
 var proxyServer = http.createServer(function(req, res) {
-    var query = new URL(req.url, 'http://localhost:' + proxyPort).searchParams;
-    var targetUrl = query.get('url');
-    if (!targetUrl) { res.writeHead(400); return res.end('No URL'); }
+    var query = new URL(req.url, "http://localhost:" + proxyPort).searchParams;
+    var targetUrl = query.get("url");
+    if (targetUrl) {
+        currentBaseUrl = targetUrl;
+    } else if (currentBaseUrl) {
+        try { targetUrl = new URL(req.url, currentBaseUrl).href; } catch(e){}
+    }
+    if (!targetUrl) { res.writeHead(400); return res.end("No URL"); }
 
     var client = targetUrl.startsWith('https') ? https : http;
     var options = {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept': req.headers.accept || '*/*',
             'Accept-Encoding': 'identity'
         }
     };
@@ -175,9 +181,7 @@ var proxyServer = http.createServer(function(req, res) {
             var html = '';
             targetRes.on('data', function(c) { html += c; });
             targetRes.on('end', function() {
-                var base = '<base href="' + targetUrl + '">';
                 html = html.replace(/<meta[^>]+http-equiv=['"]?Content-Security-Policy['"]?[^>]*>/gi, '');
-                html = html.indexOf('<head>') !== -1 ? html.replace('<head>', '<head>\n' + base) : base + html;
                 html = html.indexOf('</body>') !== -1 ? html.replace('</body>', INJECTED_SCRIPT + '\n</body>') : html + INJECTED_SCRIPT;
                 res.end(html);
             });
