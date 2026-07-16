@@ -6,6 +6,8 @@ const https = require('https');
 const os = require('os');
 const URL = require('url').URL;
 
+const sharp = require('sharp');
+
 var proxyPort = 0;
 const iframe = document.getElementById('browserView');
 const statusDiv = document.getElementById('debugStatus');
@@ -14,6 +16,7 @@ urlInput.value = 'https://fonts.google.com/icons';
 
 // ── Injected Script (array of single-quoted lines) ─────
 var INJECTED_SCRIPT = [
+'<script src="https://cdnjs.cloudflare.com/ajax/libs/imagetracerjs/1.2.6/imagetracer_v1.2.6.min.js"></script>',
 '<script>',
 'var _hl=true;',
 'window.addEventListener("message",function(e){',
@@ -25,17 +28,14 @@ var INJECTED_SCRIPT = [
 'window.parent.postMessage({type:"request-highlight-state"},"*");',
 
 'var _css=document.createElement("style");',
-'_css.textContent="#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
+'_css.textContent="*[data-ai-hover]{outline:3px dashed #ff00ff!important;outline-offset:-3px!important;cursor:pointer!important;background-color:rgba(255,0,255,.08)!important}#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
 'document.head.appendChild(_css);',
-'var _box=document.createElement("div");',
-'_box.style.cssText="position:fixed;pointer-events:none;z-index:999998;outline:3px dashed #ff00ff;outline-offset:-3px;background:rgba(255,0,255,.08);transition:all 0.1s ease-out;display:none;";',
-'document.body.appendChild(_box);',
 
 'var _t=document.createElement("div");_t.id="ai-toast";document.body.appendChild(_t);',
 'function _toast(m,err){_t.textContent=m;_t.style.background=err?"#a00":"#0a0";_t.classList.add("show");setTimeout(function(){_t.classList.remove("show");},2000);}',
 
-'window.addEventListener("mouseover",function(e){if(!_hl||!e.target||e.target===document.body||e.target===document.documentElement){_box.style.display="none";return;}var r=e.target.getBoundingClientRect();_box.style.left=r.left+"px";_box.style.top=r.top+"px";_box.style.width=r.width+"px";_box.style.height=r.height+"px";_box.style.display="block";},true);',
-'window.addEventListener("mouseout",function(e){if(!_hl||!e.target)return;_box.style.display="none";},true);',
+'window.addEventListener("mouseover",function(e){if(!_hl||!e.target||e.target===document.body||e.target===document.documentElement)return;e.target.setAttribute("data-ai-hover","1");},true);',
+'window.addEventListener("mouseout",function(e){if(!_hl||!e.target)return;e.target.removeAttribute("data-ai-hover");},true);',
 
 'function _captureVector(el){',
 '  _toast("Capturing vector...");',
@@ -59,10 +59,15 @@ var INJECTED_SCRIPT = [
 '      ctx.font=cs.fontWeight+" "+parseFloat(cs.fontSize)+"px "+cs.fontFamily;',
 '      ctx.fillStyle=cs.color;',
 '      ctx.fillText(txt, pad, pad);',
-'      var dataUrl=c.toDataURL("image/png");',
-'      var ix=(tr.left-ox)-pad, iy=(tr.top-oy)-pad, iw=tr.width+pad*2, ih=tr.height+pad*2;',
-'      svgStr+="<image id=\\"ai-trace-me-"+Math.random().toString(36).substr(2,5)+"\\" x=\\""+ix+"\\" y=\\""+iy+"\\" width=\\""+iw+"\\" height=\\""+ih+"\\" xlink:href=\\""+dataUrl+"\\" />";',
+'      var imgData=ctx.getImageData(0,0,c.width,c.height);',
+'      if(typeof ImageTracer!=="undefined"){',
+'        var tracedSvg=ImageTracer.imagedataToSVG(imgData,{corsenabled:false,ltres:0.1,qtres:1,pathomit:0,colorsampling:0,numberofcolors:2,strokewidth:1,scale:1/dpr});',
+'        var paths=tracedSvg.substring(tracedSvg.indexOf("<g"),tracedSvg.indexOf("</svg>"));',
+'        var ix=(tr.left-ox)-pad, iy=(tr.top-oy)-pad;',
+'        svgStr+="<g transform=\\"translate("+ix+","+iy+")\\">"+paths+"</g>";',
+'      }',
 '    }else if(node.nodeType===1){',
+'      if(node.hasAttribute("data-ai-hover"))return;',
 '      var cs=window.getComputedStyle(node);',
 '      var nr=node.getBoundingClientRect();',
 '      if(nr.width===0||nr.height===0||cs.display==="none"||cs.opacity==="0"||cs.visibility==="hidden")return;',
@@ -87,7 +92,9 @@ var INJECTED_SCRIPT = [
 '      for(var i=0;i<node.childNodes.length;i++)draw(node.childNodes[i],ox,oy);',
 '    }',
 '  }',
+'  el.removeAttribute("data-ai-hover");',
 '  draw(el,rect.left,rect.top);',
+'  el.setAttribute("data-ai-hover","1");',
 '  svgStr+="</svg>";',
 '  window.parent.postMessage({type:"import-svg",data:svgStr},"*");',
 '  _toast("Captured Vector SVG!");',
@@ -214,24 +221,29 @@ function sendDataUrlToIllustrator(dataUrl) {
 function downloadAndImport(url) {
     var ext = '.svg';
     try { ext = path.extname(new URL(url).pathname) || '.svg'; } catch(e) {}
-    var dest = path.join(os.tmpdir(), 'og_dl_' + Date.now() + ext);
-    var file = fs.createWriteStream(dest);
+    var dest = path.join(os.tmpdir(), 'og_dl_' + Date.now() + (ext === '.svg' ? '.svg' : '.png'));
     var client = url.startsWith('https') ? https : http;
 
     client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, function(response) {
         if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
             var redir = response.headers.location;
             if (!redir.startsWith('http')) redir = new URL(redir, url).href;
-            file.close(); return downloadAndImport(redir);
+            return downloadAndImport(redir);
         }
-        if (response.statusCode >= 400) {
-            file.close();
-            return handleAiResponse('Error: Remote server returned status ' + response.statusCode);
-        }
-        response.pipe(file);
-        file.on('finish', function() {
-            file.close();
-            csInterface.evalScript('importAsset("' + dest.replace(/\\/g, '\\\\') + '")', handleAiResponse);
+        
+        var chunks = [];
+        response.on('data', function(chunk) { chunks.push(chunk); });
+        response.on('end', function() {
+            var buffer = Buffer.concat(chunks);
+            if (ext !== '.svg') {
+                sharp(buffer).png().toFile(dest, function(err) {
+                    if (err) return alert('Conversion failed: ' + err.message);
+                    csInterface.evalScript('importAsset("' + dest.replace(/\\/g, '\\\\') + '")', handleAiResponse);
+                });
+            } else {
+                fs.writeFileSync(dest, buffer);
+                csInterface.evalScript('importAsset("' + dest.replace(/\\/g, '\\\\') + '")', handleAiResponse);
+            }
         });
     }).on('error', function(err) { alert('Download failed: ' + err.message); });
 }
