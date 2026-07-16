@@ -79,13 +79,14 @@ var INJECTED_SCRIPT = [
 '        svgStr+=c.outerHTML;',
 '        return;',
 '      }else if(tag==="img"&&node.src){',
+'        var imgId="ai-trace-me-"+Math.random().toString(36).substr(2,5);',
 '        try{',
 '          var ic=document.createElement("canvas");',
 '          ic.width=node.naturalWidth||node.width||w;ic.height=node.naturalHeight||node.height||h;',
 '          ic.getContext("2d").drawImage(node,0,0,ic.width,ic.height);',
-'          svgStr+="<image x=\\""+x+"\\" y=\\""+y+"\\" width=\\""+w+"\\" height=\\""+h+"\\" xlink:href=\\""+ic.toDataURL("image/png")+"\\" />";',
+'          svgStr+="<image id=\\""+imgId+"\\" x=\\""+x+"\\" y=\\""+y+"\\" width=\\""+w+"\\" height=\\""+h+"\\" xlink:href=\\""+ic.toDataURL("image/png")+"\\" />";',
 '        }catch(e){',
-'          svgStr+="<image x=\\""+x+"\\" y=\\""+y+"\\" width=\\""+w+"\\" height=\\""+h+"\\" xlink:href=\\""+node.src+"\\" />";',
+'          svgStr+="<image id=\\""+imgId+"\\" x=\\""+x+"\\" y=\\""+y+"\\" width=\\""+w+"\\" height=\\""+h+"\\" xlink:href=\\""+node.src+"\\" />";',
 '        }',
 '        return;',
 '      }',
@@ -219,22 +220,37 @@ function sendDataUrlToIllustrator(dataUrl) {
 }
 
 function downloadAndImport(url) {
-    var ext = '.svg';
-    try { ext = path.extname(new URL(url).pathname) || '.svg'; } catch(e) {}
-    var dest = path.join(os.tmpdir(), 'og_dl_' + Date.now() + ext);
-    var file = fs.createWriteStream(dest);
-    var client = url.startsWith('https') ? https : http;
-
-    client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, function(response) {
+    var client = url.startsWith("https") ? https : http;
+    client.get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, function(response) {
         if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
             var redir = response.headers.location;
-            if (!redir.startsWith('http')) redir = new URL(redir, url).href;
-            file.close(); return downloadAndImport(redir);
+            if (!redir.startsWith("http")) redir = new URL(redir, url).href;
+            return downloadAndImport(redir);
         }
+        var ct = (response.headers["content-type"] || "").toLowerCase();
+        var ext = ""; try { ext = path.extname(new URL(url).pathname).toLowerCase(); } catch(e) {}
+        var isSvg = ct.indexOf("svg") !== -1 || ext === ".svg";
+        var destExt = isSvg ? ".svg" : ".tmp";
+        var dest = path.join(os.tmpdir(), "og_dl_" + Date.now() + destExt);
+        var file = fs.createWriteStream(dest);
         response.pipe(file);
-        file.on('finish', function() {
+        file.on("finish", function() {
             file.close();
-            csInterface.evalScript('importAsset("' + dest.replace(/\\/g, '\\\\') + '")', handleAiResponse);
+            if (!isSvg) {
+                var img = new Image();
+                img.onload = function() {
+                    var c = document.createElement("canvas");
+                    c.width = img.width || 1; c.height = img.height || 1;
+                    c.getContext("2d").drawImage(img, 0, 0);
+                    sendDataUrlToIllustrator(c.toDataURL("image/png"));
+                };
+                img.onerror = function() {
+                    csInterface.evalScript('importAsset("' + dest.replace(/\\/g, '\\\\\\\\') + '")', handleAiResponse);
+                };
+                img.src = "file:///" + dest.replace(/\\/g, "/");
+            } else {
+                csInterface.evalScript('importAsset("' + dest.replace(/\\/g, '\\\\\\\\') + '")', handleAiResponse);
+            }
         });
-    }).on('error', function(err) { alert('Download failed: ' + err.message); });
+    }).on("error", function(err) { alert("Download failed: " + err.message); });
 }
