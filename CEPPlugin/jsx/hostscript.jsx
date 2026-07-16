@@ -32,16 +32,17 @@ function importAsset(filePath) {
                             if (r.name && r.name.indexOf('ai-trace-me') !== -1) {
                                 var plugin = r.trace();
                                 
-                                // Safely apply high-fidelity settings (silent fail if unsupported in user's CC version)
+                                //wysiwyg screenshot trace — preserve all colors, no white masking
                                 try { plugin.tracing.tracingOptions.tracingMode = TracingModeType.TRACINGCOLOR; } catch(e) {}
-                                try { plugin.tracing.tracingOptions.tracingMethod = TracingMethodType.TRACINGMETHODABUTTING; } catch(e) {}
-                                try { plugin.tracing.tracingOptions.ignoreWhite = true; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.tracingMethod = TracingMethodType.TRACINGMETHODOVERLAPPING; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.ignoreWhite = false; } catch(e) {}
                                 try { plugin.tracing.tracingOptions.pathFidelity = 100; } catch(e) {}
                                 try { plugin.tracing.tracingOptions.noiseFidelity = 1; } catch(e) {}
                                 try { plugin.tracing.tracingOptions.cornerFidelity = 100; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.maxColors = 256; } catch(e) {}
                                 
-                                app.redraw(); // Force Illustrator to register the high-res trace before expanding
-                                plugin.tracing.expandTracing(); // Convert to editable paths!
+                                app.redraw();
+                                plugin.tracing.expandTracing();
                             }
                         } catch(e) {}
                     }
