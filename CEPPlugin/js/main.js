@@ -25,10 +25,10 @@ var INJECTED_SCRIPT = [
 'window.parent.postMessage({type:"request-highlight-state"},"*");',
 
 'var _css=document.createElement("style");',
-'_css.textContent="*[data-ai-hover]{outline:3px dashed #ff00ff!important;outline-offset:-3px!important;cursor:pointer!important;background-color:rgba(255,0,255,.08)!important}#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
-'document.head.appendChild(_css);',
+'_css.textContent="*[data-ai-hover]{outline:3px dashed #ff00ff!important;outline-offset:-3px!important;cursor:pointer!important;filter:drop-shadow(0 0 3px #ff00ff)!important}#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
+'document.documentElement.appendChild(_css);',
 
-'var _t=document.createElement("div");_t.id="ai-toast";document.body.appendChild(_t);',
+'var _t=document.createElement("div");_t.id="ai-toast";document.documentElement.appendChild(_t);',
 'function _toast(m,err){_t.textContent=m;_t.style.background=err?"#a00":"#0a0";_t.classList.add("show");setTimeout(function(){_t.classList.remove("show");},2000);}',
 
 'window.addEventListener("mouseover",function(e){if(!_hl||!e.target||e.target===document.body||e.target===document.documentElement)return;e.target.setAttribute("data-ai-hover","1");},true);',
@@ -46,10 +46,14 @@ var INJECTED_SCRIPT = [
 '      var cs=window.getComputedStyle(node.parentNode);',
 '      var r=document.createRange();r.selectNodeContents(node);',
 '      var tr=r.getBoundingClientRect();',
-'      var dpr=8, pad=10;',
+'      var pad=10, dpr=8, maxDim=4000;',
+'      var cW = tr.width + pad*2, cH = tr.height + pad*2;',
+'      if (cW * dpr > maxDim) dpr = maxDim / cW;',
+'      if (cH * dpr > maxDim) dpr = Math.min(dpr, maxDim / cH);',
+'      dpr = Math.max(1, dpr);',
 '      var c=document.createElement("canvas");',
-'      c.width=(tr.width+pad*2)*dpr;',
-'      c.height=(tr.height+pad*2)*dpr;',
+'      c.width=cW*dpr;',
+'      c.height=cH*dpr;',
 '      var ctx=c.getContext("2d");',
 '      ctx.scale(dpr,dpr);',
 '      ctx.textBaseline="top";',
@@ -57,6 +61,7 @@ var INJECTED_SCRIPT = [
 '      ctx.fillStyle=cs.color;',
 '      ctx.fillText(txt, pad, pad);',
 '      var dataUrl=c.toDataURL("image/png");',
+'      c.width=0;c.height=0; // forcefully free memory',
 '      var ix=(tr.left-ox)-pad, iy=(tr.top-oy)-pad, iw=tr.width+pad*2, ih=tr.height+pad*2;',
 '      svgStr+="<image id=\\"ai-trace-me-"+Math.random().toString(36).substr(2,5)+"\\" x=\\""+ix+"\\" y=\\""+iy+"\\" width=\\""+iw+"\\" height=\\""+ih+"\\" xlink:href=\\""+dataUrl+"\\" />";',
 '    }else if(node.nodeType===1){',
@@ -102,6 +107,7 @@ var INJECTED_SCRIPT = [
 '}',
 
 'function _send(el){',
+'  if (!el || !el.closest) return;',
 '  var s=el.closest("svg");if(s){window.parent.postMessage({type:"import-svg",data:s.outerHTML},"*");return _toast("Sent Native SVG!");}',
 '  if(el.tagName&&el.tagName.toLowerCase()==="img"&&el.src){',
 '    var c=document.createElement("canvas");c.width=el.naturalWidth||el.width;c.height=el.naturalHeight||el.height;',
@@ -152,6 +158,7 @@ var proxyServer = http.createServer(function(req, res) {
             targetRes.on('data', function(c) { html += c; });
             targetRes.on('end', function() {
                 var base = '<base href="' + targetUrl + '">';
+                html = html.replace(/<meta[^>]+http-equiv=['"]?Content-Security-Policy['"]?[^>]*>/gi, '');
                 html = html.indexOf('<head>') !== -1 ? html.replace('<head>', '<head>\n' + base) : base + html;
                 html = html.indexOf('</body>') !== -1 ? html.replace('</body>', INJECTED_SCRIPT + '\n</body>') : html + INJECTED_SCRIPT;
                 res.end(html);

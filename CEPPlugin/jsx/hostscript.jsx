@@ -54,6 +54,8 @@ function importAsset(filePath) {
         } finally {
             // Always restore interaction level
             app.userInteractionLevel = originalInteractionLevel;
+            // Clean up temporary file to prevent storage memory leak
+            try { fileToPlace.remove(); } catch(e) {}
         }
         
         // Center the placed item in the active view
