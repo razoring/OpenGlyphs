@@ -16,12 +16,28 @@ function importAsset(filePath) {
 
         var isSvg = filePath.toLowerCase().indexOf('.svg') !== -1;
         var item;
-        if (isSvg) {
-            item = doc.groupItems.createFromFile(fileToPlace);
-        } else {
-            item = doc.placedItems.add();
-            item.file = fileToPlace;
-            item.embed(); // Force embed raster images
+        
+        // Suppress Illustrator warnings (e.g., "Clipping will be lost on roundtrip to Tiny")
+        var originalInteractionLevel = app.userInteractionLevel;
+        app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
+        
+        try {
+            if (isSvg) {
+                item = doc.groupItems.createFromFile(fileToPlace);
+                // Convert any text elements to pure vector paths
+                if (item && item.textFrames && item.textFrames.length > 0) {
+                    for (var i = item.textFrames.length - 1; i >= 0; i--) {
+                        try { item.textFrames[i].createOutline(); } catch(e) {}
+                    }
+                }
+            } else {
+                item = doc.placedItems.add();
+                item.file = fileToPlace;
+                item.embed(); // Force embed raster images
+            }
+        } finally {
+            // Always restore interaction level
+            app.userInteractionLevel = originalInteractionLevel;
         }
         
         // Center the placed item in the active view

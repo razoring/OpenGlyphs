@@ -12,42 +12,28 @@ const statusDiv = document.getElementById('debugStatus');
 const urlInput = document.getElementById('urlInput');
 urlInput.value = 'https://fonts.google.com/icons';
 
-// ── Injected Script (array of single-quoted lines) ──────────────────
+// ── Injected Script (array of single-quoted lines) ─────
 var INJECTED_SCRIPT = [
 '<script>',
-'var _hl=true,_dragTarget=null;',
-
-// state sync
+'var _hl=true;',
 'window.addEventListener("message",function(e){',
 '  if(e.data&&e.data.type==="toggle-highlight"){',
 '    _hl=e.data.value;',
-'    if(!_hl){document.querySelectorAll("[data-ai-hover]").forEach(function(x){x.removeAttribute("data-ai-hover");});_dragTarget=null;}',
+'    if(!_hl)document.querySelectorAll("[data-ai-hover]").forEach(function(x){x.removeAttribute("data-ai-hover");});',
 '  }',
 '});',
 'window.parent.postMessage({type:"request-highlight-state"},"*");',
 
-// css (highlight + toast)
 'var _css=document.createElement("style");',
 '_css.textContent="*[data-ai-hover]{outline:3px dashed #ff00ff!important;outline-offset:-3px!important;cursor:pointer!important;background-color:rgba(255,0,255,.08)!important}#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
 'document.head.appendChild(_css);',
 
-// toast
 'var _t=document.createElement("div");_t.id="ai-toast";document.body.appendChild(_t);',
 'function _toast(m,err){_t.textContent=m;_t.style.background=err?"#a00":"#0a0";_t.classList.add("show");setTimeout(function(){_t.classList.remove("show");},2000);}',
 
-// kill native drag
-'document.addEventListener("dragstart",function(e){e.preventDefault();e.stopPropagation();},true);',
-
-// hover
 'document.body.addEventListener("mouseover",function(e){if(!_hl||!e.target||e.target===document.body)return;e.target.setAttribute("data-ai-hover","1");});',
 'document.body.addEventListener("mouseout",function(e){if(!_hl||!e.target)return;e.target.removeAttribute("data-ai-hover");});',
 
-// drag-to-import: mousedown records target, mouseleave imports it
-'document.body.addEventListener("mousedown",function(e){if(!_hl)return;_dragTarget=e.target;});',
-'document.body.addEventListener("mouseup",function(){_dragTarget=null;});',
-'document.addEventListener("mouseleave",function(){if(_dragTarget){_send(_dragTarget);_dragTarget=null;}});',
-
-// dom to vector capture
 'function _captureVector(el){',
 '  _toast("Capturing vector...");',
 '  var rect=el.getBoundingClientRect();',
@@ -62,7 +48,8 @@ var INJECTED_SCRIPT = [
 '      var tr=r.getBoundingClientRect();',
 '      var y=tr.top-oy+parseFloat(cs.fontSize)*0.8;',
 '      var esc=txt.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");',
-'      svgStr+="<text x=\\""+(tr.left-ox)+"\\" y=\\""+y+"\\" font-family=\\""+cs.fontFamily.replace(/"/g,"\'")+"\\" font-size=\\""+parseFloat(cs.fontSize)+"\\" font-weight=\\""+cs.fontWeight+"\\" fill=\\""+cs.color+"\\">"+esc+"</text>";',
+'      var primaryFont=cs.fontFamily.split(",")[0].replace(/[\'"]/g,"").trim();',
+'      svgStr+="<text x=\\""+(tr.left-ox)+"\\" y=\\""+y+"\\" font-family=\\""+primaryFont+"\\" font-size=\\""+parseFloat(cs.fontSize)+"\\" font-weight=\\""+cs.fontWeight+"\\" fill=\\""+cs.color+"\\">"+esc+"</text>";',
 '    }else if(node.nodeType===1){',
 '      if(node.hasAttribute("data-ai-hover"))return;',
 '      var cs=window.getComputedStyle(node);',
@@ -96,29 +83,18 @@ var INJECTED_SCRIPT = [
 '  window.parent.postMessage({type:"import-svg",data:svgStr},"*");',
 '  _toast("Captured Vector SVG!");',
 '}',
-'',
-'// ── main send logic ──',
+
 'function _send(el){',
-'  var s=el.closest("svg");if(s)el=s;',
-'  var gi=el.closest(".material-symbols-outlined,.material-symbols-rounded,.material-symbols-sharp,.material-icons,.material-icons-outlined,.material-icons-round,.material-icons-sharp");',
-'  if(!gi){var ff=window.getComputedStyle(el).fontFamily;if(ff&&/material/i.test(ff))gi=el;}',
-'  if(gi){',
-'    var n=(gi.textContent||"").trim().toLowerCase().replace(/\\s+/g,"_");',
-'    if(n){',
-'      var fam="materialsymbolsoutlined";',
-'      var cls=gi.className||"";',
-'      if(/rounded/i.test(cls))fam="materialsymbolsrounded";',
-'      else if(/sharp/i.test(cls))fam="materialsymbolssharp";',
-'      else if(/material-icons/i.test(cls)&&!/outlined|round|sharp/i.test(cls))fam="materialicons";',
-'      window.parent.postMessage({type:"import-url",data:"https://fonts.gstatic.com/s/i/short-term/release/"+fam+"/"+n+"/default/48px.svg"},"*");',
-'      return _toast("Google Icon SVG!");',
-'    }',
+'  var s=el.closest("svg");if(s){window.parent.postMessage({type:"import-svg",data:s.outerHTML},"*");return _toast("Sent Native SVG!");}',
+'  if(el.tagName&&el.tagName.toLowerCase()==="img"&&el.src){',
+'    var c=document.createElement("canvas");c.width=el.naturalWidth||el.width;c.height=el.naturalHeight||el.height;',
+'    var ctx=c.getContext("2d");',
+'    try{ctx.drawImage(el,0,0);window.parent.postMessage({type:"import-dataurl",data:c.toDataURL("image/png")},"*");return _toast("Sent Image!");}',
+'    catch(e){window.parent.postMessage({type:"import-url",data:el.src},"*");return _toast("Sent Image URL!");}',
 '  }',
-'  if(el.tagName&&el.tagName.toLowerCase()==="img"&&el.src){window.parent.postMessage({type:"import-url",data:el.src},"*");return _toast("Sent Image!");}',
 '  _captureVector(el);',
 '}',
 
-// click handler
 'document.body.addEventListener("click",function(e){if(!_hl)return;e.preventDefault();e.stopPropagation();_send(e.target);},true);',
 '<\/script>'
 ].join('\n');
