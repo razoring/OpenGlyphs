@@ -14,17 +14,23 @@ function importAsset(filePath) {
             return "Error: File does not exist at path: " + filePath;
         }
 
-        var placedItem = doc.placedItems.add();
-        placedItem.file = fileToPlace;
+        var isSvg = filePath.toLowerCase().indexOf('.svg') !== -1;
+        var item;
+        if (isSvg) {
+            item = doc.groupItems.createFromFile(fileToPlace);
+        } else {
+            item = doc.placedItems.add();
+            item.file = fileToPlace;
+        }
         
         // Center the placed item in the active view
         var view = doc.activeView;
         var viewCenter = view.centerPoint;
         
         // Position is top-left coordinate, so we roughly adjust by half width/height
-        placedItem.position = [
-            viewCenter[0] - (placedItem.width / 2),
-            viewCenter[1] + (placedItem.height / 2) // In AI, Y goes up
+        item.position = [
+            viewCenter[0] - (item.width / 2),
+            viewCenter[1] + (item.height / 2) // In AI, Y goes up
         ];
         
         return "Success";
