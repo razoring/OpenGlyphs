@@ -34,6 +34,7 @@ function importAsset(filePath) {
                                 
                                 // Safely apply high-fidelity settings (silent fail if unsupported in user's CC version)
                                 try { plugin.tracing.tracingOptions.tracingMode = TracingModeType.TRACINGCOLOR; } catch(e) {}
+                                try { plugin.tracing.tracingOptions.ignoreWhite = true; } catch(e) {}
                                 try { plugin.tracing.tracingOptions.pathFidelity = 100; } catch(e) {}
                                 try { plugin.tracing.tracingOptions.noiseFidelity = 1; } catch(e) {}
                                 try { plugin.tracing.tracingOptions.cornerFidelity = 100; } catch(e) {}

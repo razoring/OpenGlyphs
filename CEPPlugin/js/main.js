@@ -25,14 +25,17 @@ var INJECTED_SCRIPT = [
 'window.parent.postMessage({type:"request-highlight-state"},"*");',
 
 'var _css=document.createElement("style");',
-'_css.textContent="*[data-ai-hover]{outline:3px dashed #ff00ff!important;outline-offset:-3px!important;cursor:pointer!important;background-color:rgba(255,0,255,.08)!important}#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
+'_css.textContent="#ai-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;padding:8px 16px;border-radius:6px;font:13px sans-serif;z-index:999999;pointer-events:none;opacity:0;transition:opacity .3s}#ai-toast.show{opacity:1}";',
 'document.head.appendChild(_css);',
+'var _box=document.createElement("div");',
+'_box.style.cssText="position:fixed;pointer-events:none;z-index:999998;outline:3px dashed #ff00ff;outline-offset:-3px;background:rgba(255,0,255,.08);transition:all 0.1s ease-out;display:none;";',
+'document.body.appendChild(_box);',
 
 'var _t=document.createElement("div");_t.id="ai-toast";document.body.appendChild(_t);',
 'function _toast(m,err){_t.textContent=m;_t.style.background=err?"#a00":"#0a0";_t.classList.add("show");setTimeout(function(){_t.classList.remove("show");},2000);}',
 
-'document.body.addEventListener("mouseover",function(e){if(!_hl||!e.target||e.target===document.body)return;e.target.setAttribute("data-ai-hover","1");});',
-'document.body.addEventListener("mouseout",function(e){if(!_hl||!e.target)return;e.target.removeAttribute("data-ai-hover");});',
+'window.addEventListener("mouseover",function(e){if(!_hl||!e.target||e.target===document.body||e.target===document.documentElement){_box.style.display="none";return;}var r=e.target.getBoundingClientRect();_box.style.left=r.left+"px";_box.style.top=r.top+"px";_box.style.width=r.width+"px";_box.style.height=r.height+"px";_box.style.display="block";},true);',
+'window.addEventListener("mouseout",function(e){if(!_hl||!e.target)return;_box.style.display="none";},true);',
 
 'function _captureVector(el){',
 '  _toast("Capturing vector...");',
@@ -60,7 +63,6 @@ var INJECTED_SCRIPT = [
 '      var ix=(tr.left-ox)-pad, iy=(tr.top-oy)-pad, iw=tr.width+pad*2, ih=tr.height+pad*2;',
 '      svgStr+="<image id=\\"ai-trace-me-"+Math.random().toString(36).substr(2,5)+"\\" x=\\""+ix+"\\" y=\\""+iy+"\\" width=\\""+iw+"\\" height=\\""+ih+"\\" xlink:href=\\""+dataUrl+"\\" />";',
 '    }else if(node.nodeType===1){',
-'      if(node.hasAttribute("data-ai-hover"))return;',
 '      var cs=window.getComputedStyle(node);',
 '      var nr=node.getBoundingClientRect();',
 '      if(nr.width===0||nr.height===0||cs.display==="none"||cs.opacity==="0"||cs.visibility==="hidden")return;',
@@ -85,9 +87,7 @@ var INJECTED_SCRIPT = [
 '      for(var i=0;i<node.childNodes.length;i++)draw(node.childNodes[i],ox,oy);',
 '    }',
 '  }',
-'  el.removeAttribute("data-ai-hover");',
 '  draw(el,rect.left,rect.top);',
-'  el.setAttribute("data-ai-hover","1");',
 '  svgStr+="</svg>";',
 '  window.parent.postMessage({type:"import-svg",data:svgStr},"*");',
 '  _toast("Captured Vector SVG!");',
@@ -104,7 +104,7 @@ var INJECTED_SCRIPT = [
 '  _captureVector(el);',
 '}',
 
-'document.body.addEventListener("click",function(e){if(!_hl)return;e.preventDefault();e.stopPropagation();_send(e.target);},true);',
+'window.addEventListener("click",function(e){if(!_hl)return;e.preventDefault();e.stopPropagation();_send(e.target);},true);',
 '<\/script>'
 ].join('\n');
 
@@ -223,6 +223,10 @@ function downloadAndImport(url) {
             var redir = response.headers.location;
             if (!redir.startsWith('http')) redir = new URL(redir, url).href;
             file.close(); return downloadAndImport(redir);
+        }
+        if (response.statusCode >= 400) {
+            file.close();
+            return handleAiResponse('Error: Remote server returned status ' + response.statusCode);
         }
         response.pipe(file);
         file.on('finish', function() {
