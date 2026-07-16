@@ -46,7 +46,7 @@ var INJECTED_SCRIPT = [
 '      var cs=window.getComputedStyle(node.parentNode);',
 '      var r=document.createRange();r.selectNodeContents(node);',
 '      var tr=r.getBoundingClientRect();',
-'      var dpr=4, pad=10;',
+'      var dpr=8, pad=10;',
 '      var c=document.createElement("canvas");',
 '      c.width=(tr.width+pad*2)*dpr;',
 '      c.height=(tr.height+pad*2)*dpr;',
