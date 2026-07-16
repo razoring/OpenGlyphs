@@ -1,2 +1,2 @@
-fix bounded box in React websites.
 fix auto-imported downloads.
+drag-and-drop with temp dummy image; in document, dummy image follows cursor until dropped; then full res element gets created

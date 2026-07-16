@@ -47,31 +47,24 @@ var INJECTED_SCRIPT = [
     '  var rect=el.getBoundingClientRect();',
     '  if(rect.width<1||rect.height<1){_toast("No visible size",true);return;}',
     '  var svgStr="<svg xmlns=\\"http://www.w3.org/2000/svg\\" xmlns:xlink=\\"http://www.w3.org/1999/xlink\\" width=\\""+rect.width+"\\" height=\\""+rect.height+"\\" viewBox=\\"0 0 "+rect.width+" "+rect.height+"\\">";',
+    '  var _chunks = [], _cur = null;',
+    '  function _addText(txt, tr, cs, ox, oy) {',
+    '    var pad=15, l=tr.left-ox-pad, t=tr.top-oy-pad, r=tr.right-ox+pad, b=tr.bottom-oy+pad;',
+    '    if (!_cur) { _cur = {l:l, t:t, r:r, b:b, items:[]}; }',
+    '    else {',
+    '      var nl=Math.min(_cur.l, l), nt=Math.min(_cur.t, t), nr=Math.max(_cur.r, r), nb=Math.max(_cur.b, b);',
+    '      if ((nr-nl)*(nb-nt) > 4000000) { _chunks.push(_cur); _cur = {l:l, t:t, r:r, b:b, items:[]}; }',
+    '      else { _cur.l=nl; _cur.t=nt; _cur.r=nr; _cur.b=nb; }',
+    '    }',
+    '    _cur.items.push({txt:txt, tr:tr, cs:cs, ox:ox, oy:oy});',
+    '  }',
     '  function draw(node,ox,oy){',
     '    if(node.nodeType===3){',
     '      var txt=node.textContent.trim();',
     '      if(!txt)return;',
     '      var cs=window.getComputedStyle(node.parentNode);',
     '      var r=document.createRange();r.selectNodeContents(node);',
-    '      var tr=r.getBoundingClientRect();',
-    '      var pad=15, dpr=8, maxDim=4000;',
-    '      var cW = tr.width + pad*2, cH = tr.height + pad*2;',
-    '      if (cW * dpr > maxDim) dpr = maxDim / cW;',
-    '      if (cH * dpr > maxDim) dpr = Math.min(dpr, maxDim / cH);',
-    '      dpr = Math.max(1, dpr);',
-    '      var c=document.createElement("canvas");',
-    '      c.width=cW*dpr;',
-    '      c.height=cH*dpr;',
-    '      var ctx=c.getContext("2d");',
-    '      ctx.scale(dpr,dpr);',
-    '      ctx.textBaseline="middle";',
-    '      ctx.font=cs.fontWeight+" "+parseFloat(cs.fontSize)+"px "+cs.fontFamily;',
-    '      ctx.fillStyle=cs.color;',
-    '      ctx.fillText(txt, pad, pad + (tr.height/2));',
-    '      var dataUrl=c.toDataURL("image/png");',
-    '      c.width=0;c.height=0; // forcefully free memory',
-    '      var ix=(tr.left-ox)-pad, iy=(tr.top-oy)-pad, iw=tr.width+pad*2, ih=tr.height+pad*2;',
-    '      svgStr+="<image id=\\"ai-trace-me-"+Math.random().toString(36).substr(2,5)+"\\" x=\\""+ix+"\\" y=\\""+iy+"\\" width=\\""+iw+"\\" height=\\""+ih+"\\" xlink:href=\\""+dataUrl+"\\" />";',
+    '      _addText(txt, r.getBoundingClientRect(), cs, ox, oy);',
     '    }else if(node.nodeType===1){',
     '      if(node.hasAttribute("data-ai-hover"))return;',
     '      var cs=window.getComputedStyle(node);',
@@ -108,6 +101,23 @@ var INJECTED_SCRIPT = [
     '    }',
     '  }',
     '  draw(el,rect.left,rect.top);',
+    '  if (_cur) _chunks.push(_cur);',
+    '  for(var i=0;i<_chunks.length;i++){',
+    '    var ch=_chunks[i], w=ch.r-ch.l, h=ch.b-ch.t, dpr=8, md=4000;',
+    '    if (w*dpr>md) dpr=md/w;',
+    '    if (h*dpr>md) dpr=Math.min(dpr, md/h);',
+    '    dpr=Math.max(1,dpr);',
+    '    var c=document.createElement("canvas"); c.width=w*dpr; c.height=h*dpr;',
+    '    var ctx=c.getContext("2d"); ctx.scale(dpr,dpr); ctx.textBaseline="middle";',
+    '    for(var j=0;j<ch.items.length;j++){',
+    '      var t=ch.items[j];',
+    '      ctx.font=t.cs.fontWeight+" "+parseFloat(t.cs.fontSize)+"px "+t.cs.fontFamily;',
+    '      ctx.fillStyle=t.cs.color;',
+    '      ctx.fillText(t.txt, t.tr.left-t.ox-ch.l, t.tr.top-t.oy-ch.t+(t.tr.height/2));',
+    '    }',
+    '    svgStr+="<image id=\\"ai-trace-me-"+Math.random().toString(36).substr(2,5)+"\\" x=\\""+ch.l+"\\" y=\\""+ch.t+"\\" width=\\""+w+"\\" height=\\""+h+"\\" xlink:href=\\""+c.toDataURL("image/png")+"\\" />";',
+    '    c.width=0;c.height=0;',
+    '  }',
     '  svgStr+="</svg>";',
     '  window.parent.postMessage({type:"import-svg",data:svgStr},"*");',
     '  _toast("Captured Vector SVG!");',
@@ -149,11 +159,25 @@ var INJECTED_SCRIPT = [
     '  }).catch(function(){ _toast("Download Failed", true); });',
     '}',
     '',
-    'var _oldClick = HTMLAnchorElement.prototype.click;',
-    'HTMLAnchorElement.prototype.click = function() {',
-    '  var isAsset = this.href.match(/\\.(svg|png|jpg|jpeg|gif|webp|avif)(\\?.*)?$/i) || this.href.startsWith("blob:") || this.href.startsWith("data:");',
-    '  if(this.hasAttribute("download") || isAsset) { _handleDownload(this); return; }',
+    'var _oldClick = HTMLElement.prototype.click;',
+    'HTMLElement.prototype.click = function() {',
+    '  if (this.tagName && this.tagName.toLowerCase() === "a") {',
+    '    var isAsset = this.href.match(/\\.(svg|png|jpg|jpeg|gif|webp|avif)(\\?.*)?$/i) || this.href.startsWith("blob:") || this.href.startsWith("data:");',
+    '    if(this.hasAttribute("download") || isAsset) { _handleDownload(this); return; }',
+    '  }',
     '  return _oldClick.apply(this, arguments);',
+    '};',
+    '',
+    'var _oldDispatch = EventTarget.prototype.dispatchEvent;',
+    'EventTarget.prototype.dispatchEvent = function(event) {',
+    '  if (event.type === "click" && this.tagName && this.tagName.toLowerCase() === "a") {',
+    '    var isAsset = this.href.match(/\\.(svg|png|jpg|jpeg|gif|webp|avif)(\\?.*)?$/i) || this.href.startsWith("blob:") || this.href.startsWith("data:");',
+    '    if (this.hasAttribute("download") || isAsset) {',
+    '       _handleDownload(this);',
+    '       return false;',
+    '    }',
+    '  }',
+    '  return _oldDispatch.apply(this, arguments);',
     '};',
     '',
     'var _oldOpen = window.open;',
@@ -206,7 +230,9 @@ var proxyServer = http.createServer(function (req, res) {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
             'Accept': req.headers.accept || '*/*',
-            'Accept-Encoding': 'identity'
+            'Accept-Encoding': 'identity',
+            'Cookie': req.headers.cookie || '',
+            'Referer': req.headers.referer || targetUrl
         }
     };
 
@@ -234,11 +260,11 @@ var proxyServer = http.createServer(function (req, res) {
             var dest = path.join(os.tmpdir(), "og_dl_" + Date.now() + destExt);
             var file = fs.createWriteStream(dest);
             targetRes.pipe(file);
-            targetRes.on('end', function() {
-                res.writeHead(200, {'Content-Type': 'text/html'});
+            targetRes.on('end', function () {
+                res.writeHead(200, { 'Content-Type': 'text/html' });
                 res.end("<script>console.log('Download intercepted by OpenGlyphs');</script>");
             });
-            file.on('finish', function() {
+            file.on('finish', function () {
                 file.close();
                 csInterface.evalScript('importAsset("' + dest.replace(/\\/g, '\\\\\\\\') + '")', handleAiResponse);
             });
@@ -267,7 +293,7 @@ window.addEventListener('beforeunload', function () { proxyServer.close(); });
 
 proxyServer.listen(0, function () {
     proxyPort = proxyServer.address().port;
-    statusDiv.innerHTML = 'Port ' + proxyPort + ' - Click elements to import';
+    statusDiv.innerHTML = 'Port ' + proxyPort + ' - Click or download assets to automatically import';
     statusDiv.style.background = '#0a0';
     loadUrl(urlInput.value);
 });
